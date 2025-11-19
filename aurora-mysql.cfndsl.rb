@@ -11,6 +11,8 @@ CloudFormation do
   Condition("EnableCloudwatchLogsExports", FnNot(FnEquals(Ref(:EnableCloudwatchLogsExports), '')))
   Condition("EnableLocalWriteForwarding", FnEquals(Ref(:EnableLocalWriteForwarding), 'true'))
   Condition("EnableReader", FnEquals(Ref(:EnableReader), 'true'))
+  Condition("EnableReaderOwnParameterGroup", FnEquals(Ref(:ReaderOwnParameterGroup), 'true'))
+  
   
   Condition("IsWriterServerless", FnEquals(Ref(:WriterInstanceType), 'db.serverless'))
   Output('IsWriterServerless') { 
@@ -96,7 +98,13 @@ CloudFormation do
     Tags tags + [{ Key: 'Name', Value: FnJoin('-', [ Ref(:EnvironmentName), external_parameters[:component_name], 'instance-parameter-group' ])}]
   }
 
-  
+  RDS_DBParameterGroup(:DBReaderInstanceParameterGroup) {
+    Condition(:EnableReaderOwnParameterGroup)
+    Description FnJoin(' ', [ Ref(:EnvironmentName), external_parameters[:component_name], 'reader instance parameter group' ])
+    Family external_parameters[:family]
+    Parameters external_parameters[:reader_instance_parameters]
+    Tags tags + [{ Key: 'Name', Value: FnJoin('-', [ Ref(:EnvironmentName), external_parameters[:component_name], 'reader-instance-parameter-group' ])}]
+  }
 
   RDS_DBCluster(:DBCluster) {
     Engine external_parameters[:engine]
@@ -153,7 +161,7 @@ CloudFormation do
     RDS_DBInstance(:ServerlessDBInstanceReader) {
       Condition(:EnableReader)
       DBSubnetGroupName Ref(:DBClusterSubnetGroup)
-      DBParameterGroupName Ref(:DBInstanceParameterGroup)
+      DBParameterGroupName Fnif(:EnableReaderOwnParameterGroup, Ref(:DBReaderInstanceParameterGroup), Ref(:DBInstanceParameterGroup))
       Engine external_parameters[:engine]
       DBClusterIdentifier Ref(:DBCluster)
       AutoMinorVersionUpgrade minor_upgrade unless minor_upgrade.nil?
@@ -181,7 +189,7 @@ CloudFormation do
     RDS_DBInstance(:DBClusterInstanceReader) {
       Condition(:EnableReader)
       DBSubnetGroupName Ref(:DBClusterSubnetGroup)
-      DBParameterGroupName Ref(:DBInstanceParameterGroup)
+      DBParameterGroupName Fnif(:EnableReaderOwnParameterGroup, Ref(:DBReaderInstanceParameterGroup), Ref(:DBInstanceParameterGroup))
       Engine external_parameters[:engine]
       DBClusterIdentifier Ref(:DBCluster)
       AutoMinorVersionUpgrade minor_upgrade unless minor_upgrade.nil? 
