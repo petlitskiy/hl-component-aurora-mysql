@@ -11,7 +11,7 @@ CloudFormation do
   Condition("EnableCloudwatchLogsExports", FnNot(FnEquals(Ref(:EnableCloudwatchLogsExports), '')))
   Condition("EnableLocalWriteForwarding", FnEquals(Ref(:EnableLocalWriteForwarding), 'true'))
   Condition("EnableReader", FnEquals(Ref(:EnableReader), 'true'))
-  Condition("EnableReaderOwnParameterGroup", FnEquals(Ref(:ReaderOwnParameterGroup), 'true'))
+  Condition("EnableReaderOwnParameterGroup", FnAnd([FnEquals(Ref(:ReaderOwnParameterGroup), 'true'), FnEquals(Ref(:EnableReader), 'true')]))
   
   Condition("IsWriterServerless", FnEquals(Ref(:WriterInstanceType), 'db.serverless'))
   Output('IsWriterServerless') { 
@@ -93,7 +93,7 @@ CloudFormation do
   RDS_DBParameterGroup(:DBInstanceParameterGroup) {
     Description FnJoin(' ', [ Ref(:EnvironmentName), external_parameters[:component_name], 'instance parameter group' ])
     Family external_parameters[:family]
-    Parameters external_parameters[:instance_parameters]
+    Parameters external_parameters.fetch(:instance_parameters, {})
     Tags tags + [{ Key: 'Name', Value: FnJoin('-', [ Ref(:EnvironmentName), external_parameters[:component_name], 'instance-parameter-group' ])}]
   }
 
@@ -101,7 +101,7 @@ CloudFormation do
     Condition(:EnableReaderOwnParameterGroup)
     Description FnJoin(' ', [ Ref(:EnvironmentName), external_parameters[:component_name], 'reader instance parameter group' ])
     Family external_parameters[:family]
-    Parameters external_parameters.fetch([:reader_instance_parameters],[:instance_parameters])
+    Parameters external_parameters.fetch(:reader_instance_parameters, {})
     Tags tags + [{ Key: 'Name', Value: FnJoin('-', [ Ref(:EnvironmentName), external_parameters[:component_name], 'reader-instance-parameter-group' ])}]
   }  
 
